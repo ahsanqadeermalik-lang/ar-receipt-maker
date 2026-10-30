@@ -1,8 +1,23 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14284b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AL REHMAN">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
 <title>AL REHMAN Receipt Maker</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Oswald:wght@500;600&display=swap">
 <style>
+:root{color-scheme:light}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
 /* Layout: form on the left, live receipt on the right (sticky). Stacks to one column on phones. */
 :root {
   --bg: #eceff4;
@@ -87,10 +102,10 @@ button:hover { filter: brightness(1.08); }
 .r-head { background: var(--r-navy); color: #fff; text-align: center; padding: 22px 16px 18px; border-bottom: 4px solid var(--r-gold); }
 .r-eyebrow { margin: 0 0 6px; font-size: .68rem; letter-spacing: .28em; color: #e2c27a; font-weight: 600; }
 .r-shop { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 1.55rem; letter-spacing: .1em; line-height: 1.15; }
+.r-contact { margin: 8px 0 0; font-family: var(--font-mono); font-size: .8rem; letter-spacing: .04em; color: #e2c27a; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 16px; }
 .r-meta { display: flex; justify-content: space-between; gap: 12px; padding: 14px 20px; border-bottom: 1px dashed var(--r-line); }
 .r-meta span { display: block; font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; color: var(--r-mute); }
 .r-meta b { font-family: var(--font-mono); font-size: .86rem; font-weight: 600; }
-.r-meta div:last-child { text-align: right; }
 .r-rows { margin: 0; padding: 6px 20px; }
 .r-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--r-line); }
 .r-row:last-child { border-bottom: 0; }
@@ -113,12 +128,41 @@ button:hover { filter: brightness(1.08); }
 .imgbox img { display: block; width: 100%; max-width: 400px; margin: 10px auto 0; border: 1px solid var(--line); }
 .imgbox p { margin: 0; font-size: .85rem; color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { button { transition: filter .15s; } }
+.gate { min-height: 70vh; display: grid; place-items: center; }
+.gate[hidden], .wrap[hidden] { display: none; }
+.gate .panel { width: 100%; max-width: 380px; display: grid; gap: 14px; }
+.gate h1 { font-family: var(--font-display); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: 1.3rem; margin: 0; }
+.gate p { margin: 0; color: var(--muted); }
+.gate form { display: grid; gap: 14px; }
+.logout { justify-self: start; }
 </style>
 
-<div class="wrap">
+</head>
+<body>
+<div class="gate" id="gate">
+  <div class="panel">
+    <h1>AL REHMAN ELECTRONICS</h1>
+    <p>Receipt Maker. Please log in to continue.</p>
+    <form id="login" autocomplete="off" novalidate>
+      <div>
+        <label for="lu">Username</label>
+        <input id="lu" type="text" autocapitalize="none" autocorrect="off" spellcheck="false">
+      </div>
+      <div>
+        <label for="lp">Password</label>
+        <input id="lp" type="password">
+      </div>
+      <button type="submit">Log in</button>
+      <p id="lerr" class="status bad" role="alert"></p>
+    </form>
+  </div>
+</div>
+
+<div class="wrap" id="app" hidden>
   <header class="top">
     <h1>Receipt Maker</h1>
     <p>AL REHMAN ELECTRONICS. Enter the payment details, check the receipt on the right, then send it to the customer.</p>
+    <button type="button" id="btn-logout" class="alt logout" style="margin-top:12px">Log out</button>
   </header>
 
   <div class="cols">
@@ -126,11 +170,7 @@ button:hover { filter: brightness(1.08); }
       <h2 id="h-form">Payment details</h2>
       <form id="form" autocomplete="off" novalidate>
         <div class="grid">
-          <div>
-            <label for="rno">Receipt number</label>
-            <input id="rno" class="num" type="text">
-          </div>
-          <div>
+          <div class="full">
             <label for="date">Date</label>
             <input id="date" type="date">
           </div>
@@ -163,10 +203,9 @@ button:hover { filter: brightness(1.08); }
             </select>
           </div>
         </div>
-        <p class="hint">The form opens with example details. Press Clear form and type the real ones. The receipt number goes up by one each time you press New receipt.</p>
+        <p class="hint">The form opens with example details. Press Clear form and type the real ones.</p>
         <div class="actions">
-          <button type="button" id="btn-new">New receipt</button>
-          <button type="button" id="btn-clear" class="alt">Clear form</button>
+          <button type="button" id="btn-clear">Clear form</button>
         </div>
       </form>
     </section>
@@ -176,9 +215,9 @@ button:hover { filter: brightness(1.08); }
         <header class="r-head">
           <p class="r-eyebrow">PAYMENT RECEIPT</p>
           <h2 class="r-shop">AL REHMAN ELECTRONICS</h2>
+          <p class="r-contact"><span>0321 8827500</span><span>0333 4514131</span></p>
         </header>
         <div class="r-meta">
-          <div><span>Receipt No.</span><b id="p-rno"></b></div>
           <div><span>Date</span><b id="p-date"></b></div>
         </div>
         <dl class="r-rows">
@@ -218,17 +257,32 @@ button:hover { filter: brightness(1.08); }
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var ids = ['rno', 'date', 'name', 'acct', 'recv', 'bal', 'by', 'method'];
-
-  var mem = 0;
-  function loadCounter() { try { var v = parseInt(localStorage.getItem('are_counter'), 10); return isNaN(v) ? mem : v; } catch (e) { return mem; } }
-  function saveCounter(n) { mem = n; try { localStorage.setItem('are_counter', String(n)); } catch (e) {} }
+  var LOGIN_HASH = '179e73c367b191da907d4da919179e52c4ffc201fa7d1dd52476c8ce1cff7ef8';
+  function sha256(text) {
+    var data = new TextEncoder().encode(text);
+    return crypto.subtle.digest('SHA-256', data).then(function (buf) {
+      return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+    });
+  }
+  function showApp(on) { $('app').hidden = !on; $('gate').hidden = on; }
+  function remember(on) { try { if (on) sessionStorage.setItem('are_auth', LOGIN_HASH); else sessionStorage.removeItem('are_auth'); } catch (e) {} }
+  function remembered() { try { return sessionStorage.getItem('are_auth') === LOGIN_HASH; } catch (e) { return false; } }
+  $('login').addEventListener('submit', function (e) {
+    e.preventDefault();
+    $('lerr').textContent = '';
+    sha256($('lu').value.trim() + ':' + $('lp').value).then(function (h) {
+      if (h === LOGIN_HASH) { remember(true); $('lp').value = ''; showApp(true); }
+      else { $('lerr').textContent = 'Wrong username or password. Please try again.'; $('lp').value = ''; $('lp').focus(); }
+    }).catch(function () { $('lerr').textContent = 'Login could not run in this browser.'; });
+  });
+  $('btn-logout').addEventListener('click', function () { remember(false); $('lu').value = ''; $('lp').value = ''; showApp(false); $('lu').focus(); });
+  showApp(remembered());
+  var ids = ['date', 'name', 'acct', 'recv', 'bal', 'by', 'method'];
 
   function todayISO() {
     try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi' }).format(new Date()); }
     catch (e) { return new Date().toISOString().slice(0, 10); }
   }
-  function rnoFor(n) { return 'ARE-' + todayISO().slice(0, 4) + '-' + String(n).padStart(6, '0'); }
   function num(s) { var v = parseFloat(String(s).replace(/[^0-9.]/g, '')); return isNaN(v) ? null : v; }
   function money(s) {
     var v = num(s);
@@ -248,7 +302,6 @@ button:hover { filter: brightness(1.08); }
   }
 
   function render() {
-    put('p-rno', val('rno'), '-');
     put('p-date', dateText(val('date')), '-');
     put('p-name', val('name'), 'Customer name');
     put('p-acct', val('acct'), '-');
@@ -282,9 +335,9 @@ button:hover { filter: brightness(1.08); }
   function receiptText() {
     return [
       'AL REHMAN ELECTRONICS',
+      '0321 8827500 | 0333 4514131',
       'Payment Receipt',
       '',
-      'Receipt No: ' + val('rno'),
       'Date: ' + dateText(val('date')),
       'Customer: ' + val('name'),
       'Account No: ' + val('acct'),
@@ -334,7 +387,7 @@ button:hover { filter: brightness(1.08); }
       if (!c) return;
       c.toBlob(function (blob) {
         if (!blob) return;
-        var file = new File([blob], 'receipt-' + val('rno') + '.png', { type: 'image/png' });
+        var file = new File([blob], 'receipt-' + (val('date') || 'new') + '.png', { type: 'image/png' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           navigator.share({ files: [file], title: 'AL REHMAN ELECTRONICS receipt' }).catch(function (e) {
             if (e && e.name !== 'AbortError') setStatus('Sharing is not available here. Touch and hold the image below to save it.', 'bad');
@@ -347,7 +400,6 @@ button:hover { filter: brightness(1.08); }
   }
 
   function fillSample() {
-    $('rno').value = rnoFor(loadCounter() + 1);
     $('date').value = todayISO();
     $('name').value = 'Muhammad Usman';
     $('acct').value = '0042';
@@ -361,16 +413,8 @@ button:hover { filter: brightness(1.08); }
     ids.forEach(function (i) { $(i).removeAttribute('aria-invalid'); });
     $('name').value = ''; $('acct').value = ''; $('recv').value = ''; $('bal').value = '';
     $('date').value = todayISO();
-    $('rno').value = rnoFor(loadCounter() + 1);
     $('imgbox').hidden = true; setStatus('');
     render(); $('name').focus();
-  }
-
-  function newReceipt() {
-    saveCounter(loadCounter() + 1);
-    clearForm();
-    $('rno').value = rnoFor(loadCounter() + 1);
-    render();
   }
 
   ids.forEach(function (i) { $(i).addEventListener('input', function () { $(i).removeAttribute('aria-invalid'); render(); }); $(i).addEventListener('change', render); });
@@ -378,12 +422,14 @@ button:hover { filter: brightness(1.08); }
   $('btn-copy').addEventListener('click', copyText);
   $('btn-img').addEventListener('click', createImage);
   $('btn-share').addEventListener('click', shareImage);
-  $('btn-new').addEventListener('click', newReceipt);
   $('btn-clear').addEventListener('click', clearForm);
 
   fillSample();
   render();
 })();
 </script>
-
-</body></html>
+<script>
+if ('serviceWorker' in navigator) { window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); }); }
+</script>
+</body>
+</html>
