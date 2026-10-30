@@ -142,6 +142,19 @@ button:hover { filter: brightness(1.08); }
 .gate form[hidden], .gate div[hidden] { display: none; }
 .gate div#fgt { display: grid; gap: 12px; }
 .gate-sub { font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0; font-weight: 600; }
+.tabs { display: flex; gap: 8px; }
+.tab { background: var(--btn2-bg); color: var(--btn2-fg); border-color: var(--line); }
+.tab.on { background: var(--btn-bg); color: var(--btn-fg); border-color: var(--btn-bg); }
+.histbar { display: flex; flex-wrap: wrap; gap: 10px; }
+.histbar input { flex: 1 1 220px; width: auto; }
+.tablewrap { overflow-x: auto; margin-top: 8px; }
+#htable { width: 100%; border-collapse: collapse; font-size: .86rem; }
+#htable th { text-align: left; font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+#htable td { padding: 9px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+#htable .r, #htable td.r { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+#htable td.acct { font-family: var(--font-mono); }
+#htable button { min-height: 36px; padding: 0 12px; }
+#view-hist[hidden], #view-new[hidden] { display: none; }
 </style>
 
 </head>
@@ -150,17 +163,17 @@ button:hover { filter: brightness(1.08); }
   <div class="panel">
     <h1>AL REHMAN ELECTRONICS</h1>
     <p>Receipt Maker. Please log in to continue.</p>
-    <form id="login" autocomplete="off" novalidate>
+    <form id="login" autocomplete="on" novalidate>
       <div>
-        <label for="lu">Username</label>
-        <input id="lu" type="text" autocapitalize="none" autocorrect="off" spellcheck="false">
-        <label class="check" for="lrem"><input id="lrem" type="checkbox"> Always remember username</label>
+        <label for="lu">Email</label>
+        <input id="lu" type="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
+        <label class="check" for="lrem"><input id="lrem" type="checkbox"> Always remember email</label>
       </div>
       <div>
         <label for="lp">Password</label>
-        <input id="lp" type="password">
+        <input id="lp" type="password" autocomplete="current-password">
       </div>
-      <button type="submit">Log in</button>
+      <button type="submit" id="lbtn">Log in</button>
       <div class="linkrow">
         <button type="button" id="btn-forgot" class="linkbtn">Forgot password?</button>
         <button type="button" id="btn-change" class="linkbtn">Change password</button>
@@ -169,6 +182,7 @@ button:hover { filter: brightness(1.08); }
     </form>
     <form id="chg" autocomplete="off" novalidate hidden>
       <h2 class="gate-sub">Change password</h2>
+      <div><label for="ce">Email</label><input id="ce" type="email" autocapitalize="none" spellcheck="false"></div>
       <div><label for="cp0">Current password</label><input id="cp0" type="password"></div>
       <div><label for="cp1">New password (at least 6 characters)</label><input id="cp1" type="password"></div>
       <div><label for="cp2">Repeat new password</label><input id="cp2" type="password"></div>
@@ -176,12 +190,21 @@ button:hover { filter: brightness(1.08); }
       <button type="button" class="alt" data-back>Back to log in</button>
       <p id="cerr" class="status" role="alert"></p>
     </form>
-    <div id="fgt" hidden>
+    <form id="fgt" autocomplete="off" novalidate hidden>
       <h2 class="gate-sub">Forgot password</h2>
-      <p>The recovery email for this app is <b>ahsanqadeermalik@gmail.com</b>.</p>
-      <p>A page that lives only on GitHub has no server, so it cannot send an email by itself. To get a new password, ask the person who set up this app to set one for you.</p>
+      <p>Enter your email. We will send a link to set a new password.</p>
+      <div><label for="fe">Email</label><input id="fe" type="email" autocapitalize="none" spellcheck="false"></div>
+      <button type="submit">Send reset link</button>
       <button type="button" class="alt" data-back>Back to log in</button>
-    </div>
+      <p id="ferr" class="status" role="alert"></p>
+    </form>
+    <form id="rec" autocomplete="off" novalidate hidden>
+      <h2 class="gate-sub">Set a new password</h2>
+      <div><label for="rp1">New password (at least 6 characters)</label><input id="rp1" type="password" autocomplete="new-password"></div>
+      <div><label for="rp2">Repeat new password</label><input id="rp2" type="password" autocomplete="new-password"></div>
+      <button type="submit">Save and log in</button>
+      <p id="rerr" class="status" role="alert"></p>
+    </form>
   </div>
 </div>
 
@@ -192,7 +215,12 @@ button:hover { filter: brightness(1.08); }
     <button type="button" id="btn-logout" class="alt logout" style="margin-top:12px">Log out</button>
   </header>
 
-  <div class="cols">
+  <nav class="tabs" aria-label="Sections">
+    <button type="button" id="tab-new" class="tab on">New receipt</button>
+    <button type="button" id="tab-hist" class="tab">History</button>
+  </nav>
+
+  <div class="cols" id="view-new">
     <section class="panel" aria-labelledby="h-form">
       <h2 id="h-form">Payment details</h2>
       <form id="form" autocomplete="off" novalidate>
@@ -230,9 +258,10 @@ button:hover { filter: brightness(1.08); }
             </select>
           </div>
         </div>
-        <p class="hint">The form opens with example details. Press Clear form and type the real ones.</p>
+        <p class="hint">Copy, Create image and Share image also save the receipt to History automatically.</p>
         <div class="actions">
-          <button type="button" id="btn-clear">Clear form</button>
+          <button type="button" id="btn-save">Save to history</button>
+          <button type="button" id="btn-clear" class="alt">Clear form</button>
         </div>
       </form>
     </section>
@@ -278,67 +307,123 @@ button:hover { filter: brightness(1.08); }
       </div>
     </aside>
   </div>
+
+  <section class="panel" id="view-hist" hidden aria-label="Receipt history">
+    <div class="histbar">
+      <input id="hq" type="search" placeholder="Search by customer name or account number" aria-label="Search history">
+      <button type="button" id="hrefresh" class="alt">Refresh</button>
+      <button type="button" id="hcsv" class="alt">Export CSV</button>
+    </div>
+    <p id="hstat" class="hint"></p>
+    <div class="tablewrap">
+      <table id="htable">
+        <thead><tr><th>Date</th><th>Customer</th><th>Account</th><th class="r">Received</th><th class="r">Balance</th><th>Method</th><th>By</th><th></th></tr></thead>
+        <tbody id="hbody"></tbody>
+      </table>
+    </div>
+  </section>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var USER = 'alrehman99';
-  var DEFAULT_HASH = 'aade9464dde4b6f325d6e15611c6b83274985634b32b53cf6a75bf90ee024e62';
+  var SB_URL = 'https://kcrmvkbscnfpsxuahqri.supabase.co';
+  var SB_KEY = 'sb_publishable_xuCCb-LK2IA8FwfQts8OyQ_gQQHh6Cm';
+  var sb = null;
+  try { sb = window.supabase.createClient(SB_URL, SB_KEY); } catch (e) {}
   function store(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
   function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-  function currentHash() { return load('are_pw') || DEFAULT_HASH; }
-  function sha256(text) {
-    var data = new TextEncoder().encode(text);
-    return crypto.subtle.digest('SHA-256', data).then(function (buf) {
-      return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+  function say(id, text, kind) { var e = $(id); e.className = 'status ' + (kind || 'bad'); e.textContent = text || ''; }
+  function showApp(on) { $('app').hidden = !on; $('gate').hidden = on; }
+  function panel(which) {
+    ['login', 'chg', 'fgt', 'rec'].forEach(function (n) { $(n).hidden = n !== which; });
+    say('lerr', ''); say('cerr', ''); say('ferr', ''); say('rerr', '');
+  }
+  var recovering = /type=recovery/.test(location.hash);
+
+  var savedEmail = load('are_email');
+  if (savedEmail) { $('lu').value = savedEmail; $('lrem').checked = true; }
+
+  function enter() {
+    return sb.from('allowed_staff').select('email').limit(1).then(function (r) {
+      if (r.error || !r.data || !r.data.length) {
+        return sb.auth.signOut().then(function () { showApp(false); panel('login'); say('lerr', 'This account is not allowed to use the app.'); });
+      }
+      showApp(true);
     });
   }
-  function showApp(on) { $('app').hidden = !on; $('gate').hidden = on; }
-  function remember(on) { try { if (on) sessionStorage.setItem('are_auth', currentHash()); else sessionStorage.removeItem('are_auth'); } catch (e) {} }
-  function remembered() { try { return sessionStorage.getItem('are_auth') === currentHash(); } catch (e) { return false; } }
-  function panel(which) { $('login').hidden = which !== 'login'; $('chg').hidden = which !== 'chg'; $('fgt').hidden = which !== 'fgt'; $('lerr').textContent = ''; $('cerr').textContent = ''; }
-
-  var savedUser = load('are_user');
-  if (savedUser) { $('lu').value = savedUser; $('lrem').checked = true; }
 
   $('login').addEventListener('submit', function (e) {
-    e.preventDefault();
-    $('lerr').className = 'status bad'; $('lerr').textContent = '';
-    var u = $('lu').value.trim();
-    sha256(u + ':' + $('lp').value).then(function (h) {
-      var ok = (h === currentHash());
-      if (ok) {
-        store('are_user', $('lrem').checked ? u : null);
-        remember(true); $('lp').value = ''; showApp(true);
-      } else { $('lerr').textContent = 'Wrong username or password. Please try again.'; $('lp').value = ''; $('lp').focus(); }
-    }).catch(function () { $('lerr').textContent = 'Login could not run in this browser.'; });
+    e.preventDefault(); say('lerr', '');
+    if (!sb) { say('lerr', 'The login service did not load. Check your internet and reload.'); return; }
+    var email = $('lu').value.trim().toLowerCase(), pw = $('lp').value;
+    if (!email || !pw) { say('lerr', 'Enter your email and password.'); return; }
+    $('lbtn').disabled = true;
+    sb.auth.signInWithPassword({ email: email, password: pw }).then(function (r) {
+      if (r.error) { say('lerr', /invalid login/i.test(r.error.message) ? 'Wrong email or password. Please try again.' : r.error.message); $('lp').value = ''; $('lp').focus(); return null; }
+      store('are_email', $('lrem').checked ? email : null);
+      $('lp').value = '';
+      return enter();
+    }).catch(function () { say('lerr', 'Could not reach the login service. Check your internet.'); }).then(function () { $('lbtn').disabled = false; });
   });
 
-  $('btn-forgot').addEventListener('click', function () { panel('fgt'); });
-  $('btn-change').addEventListener('click', function () { panel('chg'); $('cp0').focus(); });
+  $('btn-forgot').addEventListener('click', function () { panel('fgt'); $('fe').value = $('lu').value.trim(); $('fe').focus(); });
+  $('btn-change').addEventListener('click', function () { panel('chg'); $('ce').value = $('lu').value.trim(); (($('ce').value) ? $('cp0') : $('ce')).focus(); });
   Array.prototype.forEach.call(document.querySelectorAll('[data-back]'), function (b) { b.addEventListener('click', function () { panel('login'); }); });
 
-  $('chg').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var err = $('cerr'); err.className = 'status bad'; err.textContent = '';
-    var p1 = $('cp1').value, p2 = $('cp2').value;
-    if (p1.length < 6) { err.textContent = 'The new password needs at least 6 characters.'; return; }
-    if (p1 !== p2) { err.textContent = 'The two new passwords do not match.'; return; }
-    sha256(USER + ':' + $('cp0').value).then(function (h) {
-      if (h !== currentHash()) { err.textContent = 'The current password is wrong.'; return null; }
-      return sha256(USER + ':' + p1).then(function (nh) {
-        store('are_pw', nh);
-        $('cp0').value = ''; $('cp1').value = ''; $('cp2').value = '';
-        panel('login');
-        $('lerr').className = 'status ok'; $('lerr').textContent = 'Password changed on this device. Log in with the new password.';
-      });
-    }).catch(function () { err.textContent = 'Could not change the password in this browser.'; });
+  $('fgt').addEventListener('submit', function (e) {
+    e.preventDefault(); say('ferr', '');
+    var em = $('fe').value.trim().toLowerCase();
+    if (!sb) { say('ferr', 'The login service did not load. Check your internet and reload.'); return; }
+    if (!em) { say('ferr', 'Enter your email.'); return; }
+    sb.auth.resetPasswordForEmail(em, { redirectTo: location.origin + location.pathname }).then(function (r) {
+      if (r.error) say('ferr', r.error.message);
+      else say('ferr', 'If this email is registered, a reset link has been sent. Open the link on this phone.', 'ok');
+    }).catch(function () { say('ferr', 'Could not reach the login service. Check your internet.'); });
   });
 
-  $('btn-logout').addEventListener('click', function () { remember(false); $('lp').value = ''; $('lerr').className = 'status bad'; showApp(false); (($('lu').value) ? $('lp') : $('lu')).focus(); });
-  showApp(remembered());
+  $('chg').addEventListener('submit', function (e) {
+    e.preventDefault(); say('cerr', '');
+    var em = $('ce').value.trim().toLowerCase(), p1 = $('cp1').value, p2 = $('cp2').value;
+    if (!sb) { say('cerr', 'The login service did not load. Check your internet and reload.'); return; }
+    if (!em || !$('cp0').value) { say('cerr', 'Enter your email and current password.'); return; }
+    if (p1.length < 6) { say('cerr', 'The new password needs at least 6 characters.'); return; }
+    if (p1 !== p2) { say('cerr', 'The two new passwords do not match.'); return; }
+    sb.auth.signInWithPassword({ email: em, password: $('cp0').value }).then(function (r) {
+      if (r.error) { say('cerr', 'The email or current password is wrong.'); return null; }
+      return sb.auth.updateUser({ password: p1 }).then(function (r2) {
+        if (r2.error) { say('cerr', r2.error.message); return null; }
+        return sb.auth.signOut().then(function () {
+          $('cp0').value = ''; $('cp1').value = ''; $('cp2').value = '';
+          panel('login'); say('lerr', 'Password changed. Log in with the new password.', 'ok');
+        });
+      });
+    }).catch(function () { say('cerr', 'Could not reach the login service. Check your internet.'); });
+  });
+
+  $('rec').addEventListener('submit', function (e) {
+    e.preventDefault(); say('rerr', '');
+    var p1 = $('rp1').value, p2 = $('rp2').value;
+    if (p1.length < 6) { say('rerr', 'The new password needs at least 6 characters.'); return; }
+    if (p1 !== p2) { say('rerr', 'The two passwords do not match.'); return; }
+    sb.auth.updateUser({ password: p1 }).then(function (r) {
+      if (r.error) { say('rerr', r.error.message); return null; }
+      recovering = false;
+      try { history.replaceState(null, '', location.pathname); } catch (x) {}
+      return enter();
+    }).catch(function () { say('rerr', 'Could not reach the login service. Check your internet.'); });
+  });
+
+  $('btn-logout').addEventListener('click', function () {
+    var done = function () { showApp(false); panel('login'); $('lp').value = ''; (($('lu').value) ? $('lp') : $('lu')).focus(); };
+    if (sb) sb.auth.signOut().then(done, done); else done();
+  });
+
+  if (!sb) { showApp(false); say('lerr', 'The login service did not load. Check your internet and reload.'); }
+  else if (recovering) { showApp(false); panel('rec'); }
+  else { sb.auth.getSession().then(function (r) { if (r.data && r.data.session) enter(); }); }
   var ids = ['date', 'name', 'acct', 'recv', 'bal', 'by', 'method'];
 
   function todayISO() {
@@ -412,10 +497,76 @@ button:hover { filter: brightness(1.08); }
     ].join('\n');
   }
 
+  var lastSavedKey = null;
+  function formKey() { return ids.map(val).join('|'); }
+  function saveReceipt() {
+    if (!validate()) return Promise.resolve(false);
+    if (!sb) { setStatus('Could not save: the database did not load.', 'bad'); return Promise.resolve(false); }
+    var key = formKey();
+    var row = { receipt_date: val('date'), customer_name: val('name'), account_no: val('acct'), received: num(val('recv')), balance: num(val('bal')), method: val('method'), received_by: val('by') };
+    if (!row.receipt_date) { setStatus('Please choose a date.', 'bad'); return Promise.resolve(false); }
+    return sb.from('receipts').insert(row).then(function (r) {
+      if (r.error) { setStatus('Could not save to history: ' + r.error.message, 'bad'); return false; }
+      lastSavedKey = key; histLoaded = false; return true;
+    }).catch(function () { setStatus('Could not save to history. Check your internet.', 'bad'); return false; });
+  }
+  function ensureSaved() { return lastSavedKey === formKey() ? Promise.resolve(true) : saveReceipt(); }
+  function savedNote(ok) { return ok ? ' Saved to history.' : ' (Not saved to history.)'; }
+
+  var rows = [], histLoaded = false;
+  function showTab(which) {
+    var h = which === 'hist';
+    $('view-new').hidden = h; $('view-hist').hidden = !h;
+    $('tab-new').classList.toggle('on', !h); $('tab-hist').classList.toggle('on', h);
+    if (h && !histLoaded) loadHistory();
+  }
+  function loadHistory() {
+    $('hstat').textContent = 'Loading...';
+    sb.from('receipts').select('*').order('receipt_date', { ascending: false }).order('created_at', { ascending: false }).limit(1000).then(function (r) {
+      if (r.error) { $('hstat').textContent = 'Could not load history: ' + r.error.message; return; }
+      rows = r.data || []; histLoaded = true; drawHistory();
+    }).catch(function () { $('hstat').textContent = 'Could not load history. Check your internet.'; });
+  }
+  function drawHistory() {
+    var q = $('hq').value.trim().toLowerCase();
+    var list = rows.filter(function (x) { return !q || x.customer_name.toLowerCase().indexOf(q) > -1 || x.account_no.toLowerCase().indexOf(q) > -1; });
+    var body = $('hbody'); body.textContent = '';
+    var total = 0;
+    list.forEach(function (x) {
+      total += Number(x.received);
+      var tr = document.createElement('tr');
+      [[dateText(x.receipt_date), ''], [x.customer_name, ''], [x.account_no, 'acct'], [money(x.received), 'r'], [money(x.balance), 'r'], [x.method, ''], [x.received_by, '']].forEach(function (c) {
+        var td = document.createElement('td'); td.textContent = c[0]; if (c[1]) td.className = c[1]; tr.appendChild(td);
+      });
+      var td = document.createElement('td'); var b = document.createElement('button'); b.type = 'button'; b.className = 'alt'; b.textContent = 'Open';
+      b.addEventListener('click', function () { openRow(x); }); td.appendChild(b); tr.appendChild(td); body.appendChild(tr);
+    });
+    $('hstat').textContent = rows.length ? (list.length + ' of ' + rows.length + ' receipts shown. Total received: ' + money(total) + '.') : 'No receipts saved yet. Save one from the New receipt tab.';
+  }
+  function openRow(x) {
+    $('date').value = x.receipt_date; $('name').value = x.customer_name; $('acct').value = x.account_no;
+    $('recv').value = String(Number(x.received)); $('bal').value = String(Number(x.balance));
+    $('by').value = x.received_by; $('method').value = x.method;
+    lastSavedKey = formKey(); $('imgbox').hidden = true; setStatus('Receipt opened from history. You can copy, create an image or share it.', 'ok');
+    render(); showTab('new'); window.scrollTo(0, 0);
+  }
+  function csvCell(v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  function exportCsv() {
+    if (!rows.length) { $('hstat').textContent = 'Nothing to export yet.'; return; }
+    var lines = [['Date', 'Customer', 'Account', 'Received', 'Balance', 'Method', 'Received by'].join(',')];
+    rows.forEach(function (x) { lines.push([x.receipt_date, x.customer_name, x.account_no, x.received, x.balance, x.method, x.received_by].map(csvCell).join(',')); });
+    var blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'al-rehman-receipts-' + todayISO() + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
   function copyText() {
     if (!validate()) return;
+    ensureSaved().then(doCopy);
+  }
+  function doCopy(saved) {
     var t = receiptText();
-    var done = function () { setStatus('Receipt text copied. Paste it in WhatsApp.', 'ok'); };
+    var done = function () { setStatus('Receipt text copied. Paste it in WhatsApp.' + savedNote(saved), 'ok'); };
     var fallback = function () {
       var ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
       document.body.appendChild(ta); ta.select();
@@ -435,11 +586,12 @@ button:hover { filter: brightness(1.08); }
   function createImage() {
     if (!validate()) return Promise.resolve(null);
     setStatus('Creating image...');
-    return toCanvas().then(function (c) {
+    var saved = false;
+    return ensureSaved().then(function (ok) { saved = ok; return toCanvas(); }).then(function (c) {
       if (!c) return null;
       $('out').src = c.toDataURL('image/png');
       $('imgbox').hidden = false;
-      setStatus('Image ready below. Touch and hold it to save or share.', 'ok');
+      setStatus('Image ready below. Touch and hold it to save or share.' + savedNote(saved), 'ok');
       return c;
     }).catch(function () { setStatus('Could not create the image. Try Copy text instead.', 'bad'); return null; });
   }
@@ -475,6 +627,7 @@ button:hover { filter: brightness(1.08); }
     ids.forEach(function (i) { $(i).removeAttribute('aria-invalid'); });
     $('name').value = ''; $('acct').value = ''; $('recv').value = ''; $('bal').value = '';
     $('date').value = todayISO();
+    $('by').value = $('by').value; lastSavedKey = null;
     $('imgbox').hidden = true; setStatus('');
     render(); $('name').focus();
   }
@@ -485,8 +638,17 @@ button:hover { filter: brightness(1.08); }
   $('btn-img').addEventListener('click', createImage);
   $('btn-share').addEventListener('click', shareImage);
   $('btn-clear').addEventListener('click', clearForm);
+  $('btn-save').addEventListener('click', function () {
+    if (lastSavedKey === formKey() && lastSavedKey !== null) { setStatus('This receipt is already saved in history.', 'ok'); return; }
+    saveReceipt().then(function (ok) { if (ok) setStatus('Saved to history.', 'ok'); });
+  });
+  $('tab-new').addEventListener('click', function () { showTab('new'); });
+  $('tab-hist').addEventListener('click', function () { showTab('hist'); });
+  $('hq').addEventListener('input', drawHistory);
+  $('hrefresh').addEventListener('click', loadHistory);
+  $('hcsv').addEventListener('click', exportCsv);
 
-  fillSample();
+  $('date').value = todayISO();
   render();
 })();
 </script>
