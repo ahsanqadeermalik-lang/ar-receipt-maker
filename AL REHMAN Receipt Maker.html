@@ -1,0 +1,389 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>AL REHMAN Receipt Maker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Oswald:wght@500;600&display=swap">
+<style>
+/* Layout: form on the left, live receipt on the right (sticky). Stacks to one column on phones. */
+:root {
+  --bg: #eceff4;
+  --surface: #ffffff;
+  --fg: #14203a;
+  --muted: #5d6882;
+  --line: #d6dbe6;
+  --navy: #14284b;
+  --gold: #b8892b;
+  --btn-bg: #14284b;
+  --btn-fg: #ffffff;
+  --btn2-bg: #ffffff;
+  --btn2-fg: #14284b;
+  --bad: #b3261e;
+  --ok: #1d7a46;
+  --font-display: "Oswald", "Arial Narrow", Impact, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1424; --surface: #151d31; --fg: #e8ecf5; --muted: #98a3bd; --line: #28324c;
+    --btn-bg: #d4a64a; --btn-fg: #101828; --btn2-bg: #151d31; --btn2-fg: #e8ecf5;
+    --bad: #ff8a80; --ok: #6fd69b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1424; --surface: #151d31; --fg: #e8ecf5; --muted: #98a3bd; --line: #28324c;
+  --btn-bg: #d4a64a; --btn-fg: #101828; --btn2-bg: #151d31; --btn2-fg: #e8ecf5;
+  --bad: #ff8a80; --ok: #6fd69b; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1020px; margin: 0 auto; display: grid; gap: 24px; }
+.top h1 { font-family: var(--font-display); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: 1.5rem; margin: 0; text-wrap: balance; }
+.top p { margin: 4px 0 0; color: var(--muted); }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); gap: 28px; align-items: start; }
+@media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 20px; min-width: 0; }
+.panel h2 { font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px; font-weight: 600; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.grid .full { grid-column: 1 / -1; }
+@media (max-width: 520px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+label { display: block; font-size: .82rem; font-weight: 500; margin-bottom: 5px; }
+input, select {
+  width: 100%; font: inherit; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 10px 11px; min-height: 44px;
+}
+input.num { font-family: var(--font-mono); }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+input[aria-invalid="true"] { border-color: var(--bad); }
+.hint { font-size: .78rem; color: var(--muted); margin: 6px 0 0; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+button {
+  font: inherit; font-weight: 600; min-height: 44px; padding: 0 18px; border-radius: 4px; cursor: pointer;
+  background: var(--btn-bg); color: var(--btn-fg); border: 1px solid var(--btn-bg);
+}
+button.alt { background: var(--btn2-bg); color: var(--btn2-fg); border-color: var(--line); }
+button:hover { filter: brightness(1.08); }
+.status { min-height: 1.4em; margin: 12px 0 0; font-size: .88rem; }
+.status.bad { color: var(--bad); }
+.status.ok { color: var(--ok); }
+
+.side { display: grid; gap: 16px; position: sticky; top: 16px; min-width: 0; }
+@media (max-width: 860px) { .side { position: static; } }
+
+/* The receipt is a fixed white document, the same in both themes, because it is exported as an image. */
+.receipt {
+  --r-navy: #14284b; --r-gold: #b8892b; --r-ink: #1b2437; --r-mute: #6a7389; --r-line: #dde1ea;
+  background: #ffffff; color: var(--r-ink); width: 100%; max-width: 400px; margin: 0 auto;
+  border: 1px solid var(--r-line); font-family: var(--font-body);
+}
+.r-head { background: var(--r-navy); color: #fff; text-align: center; padding: 22px 16px 18px; border-bottom: 4px solid var(--r-gold); }
+.r-eyebrow { margin: 0 0 6px; font-size: .68rem; letter-spacing: .28em; color: #e2c27a; font-weight: 600; }
+.r-shop { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 1.55rem; letter-spacing: .1em; line-height: 1.15; }
+.r-meta { display: flex; justify-content: space-between; gap: 12px; padding: 14px 20px; border-bottom: 1px dashed var(--r-line); }
+.r-meta span { display: block; font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; color: var(--r-mute); }
+.r-meta b { font-family: var(--font-mono); font-size: .86rem; font-weight: 600; }
+.r-meta div:last-child { text-align: right; }
+.r-rows { margin: 0; padding: 6px 20px; }
+.r-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--r-line); }
+.r-row:last-child { border-bottom: 0; }
+.r-row dt { font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; color: var(--r-mute); flex: none; }
+.r-row dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; min-width: 0; }
+.r-row dd.mono { font-family: var(--font-mono); font-weight: 500; }
+.r-amount { margin: 6px 20px 0; padding: 14px 16px; background: #f5efe0; border-left: 4px solid var(--r-gold); display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.r-amount span { font-size: .74rem; letter-spacing: .1em; text-transform: uppercase; color: #6b5420; font-weight: 600; }
+.r-amount strong { font-family: var(--font-mono); font-size: 1.45rem; font-weight: 600; color: var(--r-navy); }
+.r-balance { margin: 0 20px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; border: 1px solid var(--r-line); border-top: 0; }
+.r-balance span { font-size: .74rem; letter-spacing: .1em; text-transform: uppercase; color: var(--r-mute); font-weight: 600; }
+.r-balance b { font-family: var(--font-mono); font-size: 1.05rem; font-weight: 600; }
+.r-badge { display: inline-block; margin-left: 8px; padding: 1px 8px; font-size: .64rem; letter-spacing: .1em; background: #dff3e7; color: #17653a; font-family: var(--font-body); font-weight: 600; vertical-align: middle; }
+.r-foot { text-align: center; padding: 18px 20px 20px; border-top: 1px dashed var(--r-line); margin-top: 14px; }
+.r-foot p { margin: 0; font-size: .82rem; font-weight: 600; }
+.r-foot small { display: block; margin-top: 4px; font-size: .68rem; color: var(--r-mute); }
+.is-empty { color: #a0a7b8; font-weight: 400 !important; }
+
+.imgbox[hidden] { display: none; }
+.imgbox img { display: block; width: 100%; max-width: 400px; margin: 10px auto 0; border: 1px solid var(--line); }
+.imgbox p { margin: 0; font-size: .85rem; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { button { transition: filter .15s; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Receipt Maker</h1>
+    <p>AL REHMAN ELECTRONICS. Enter the payment details, check the receipt on the right, then send it to the customer.</p>
+  </header>
+
+  <div class="cols">
+    <section class="panel" aria-labelledby="h-form">
+      <h2 id="h-form">Payment details</h2>
+      <form id="form" autocomplete="off" novalidate>
+        <div class="grid">
+          <div>
+            <label for="rno">Receipt number</label>
+            <input id="rno" class="num" type="text">
+          </div>
+          <div>
+            <label for="date">Date</label>
+            <input id="date" type="date">
+          </div>
+          <div class="full">
+            <label for="name">Customer full name</label>
+            <input id="name" type="text" placeholder="e.g. Muhammad Usman">
+          </div>
+          <div class="full">
+            <label for="acct">Account number</label>
+            <input id="acct" class="num" type="text" placeholder="e.g. 0042">
+          </div>
+          <div>
+            <label for="recv">Received amount (Rs.)</label>
+            <input id="recv" class="num" type="text" inputmode="decimal" placeholder="5000">
+          </div>
+          <div>
+            <label for="bal">Balance amount (Rs.)</label>
+            <input id="bal" class="num" type="text" inputmode="decimal" placeholder="25000">
+          </div>
+          <div>
+            <label for="by">Received by</label>
+            <input id="by" type="text" placeholder="Name of person who took the payment">
+          </div>
+          <div>
+            <label for="method">Receiving method</label>
+            <select id="method">
+              <option>JazzCash</option>
+              <option>Easypaisa</option>
+              <option>Bank</option>
+            </select>
+          </div>
+        </div>
+        <p class="hint">The form opens with example details. Press Clear form and type the real ones. The receipt number goes up by one each time you press New receipt.</p>
+        <div class="actions">
+          <button type="button" id="btn-new">New receipt</button>
+          <button type="button" id="btn-clear" class="alt">Clear form</button>
+        </div>
+      </form>
+    </section>
+
+    <aside class="side" aria-label="Receipt preview">
+      <article class="receipt" id="receipt">
+        <header class="r-head">
+          <p class="r-eyebrow">PAYMENT RECEIPT</p>
+          <h2 class="r-shop">AL REHMAN ELECTRONICS</h2>
+        </header>
+        <div class="r-meta">
+          <div><span>Receipt No.</span><b id="p-rno"></b></div>
+          <div><span>Date</span><b id="p-date"></b></div>
+        </div>
+        <dl class="r-rows">
+          <div class="r-row"><dt>Customer</dt><dd id="p-name"></dd></div>
+          <div class="r-row"><dt>Account No.</dt><dd id="p-acct" class="mono"></dd></div>
+        </dl>
+        <div class="r-amount"><span>Amount received</span><strong id="p-recv"></strong></div>
+        <div class="r-balance"><span>Balance remaining</span><b id="p-bal"></b></div>
+        <dl class="r-rows">
+          <div class="r-row"><dt>Paid via</dt><dd id="p-method"></dd></div>
+          <div class="r-row"><dt>Received by</dt><dd id="p-by"></dd></div>
+        </dl>
+        <footer class="r-foot">
+          <p>Thank you for your payment.</p>
+          <small>This is a computer-generated receipt.</small>
+        </footer>
+      </article>
+
+      <div class="panel">
+        <h2>Send to customer</h2>
+        <div class="actions" style="margin-top:0">
+          <button type="button" id="btn-copy">Copy text for WhatsApp</button>
+          <button type="button" id="btn-img" class="alt">Create image</button>
+          <button type="button" id="btn-share" class="alt">Share image</button>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+        <div id="imgbox" class="imgbox" hidden>
+          <p>Touch and hold the image (or right-click on a computer) to save or share it.</p>
+          <img id="out" alt="Receipt image">
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var ids = ['rno', 'date', 'name', 'acct', 'recv', 'bal', 'by', 'method'];
+
+  var mem = 0;
+  function loadCounter() { try { var v = parseInt(localStorage.getItem('are_counter'), 10); return isNaN(v) ? mem : v; } catch (e) { return mem; } }
+  function saveCounter(n) { mem = n; try { localStorage.setItem('are_counter', String(n)); } catch (e) {} }
+
+  function todayISO() {
+    try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi' }).format(new Date()); }
+    catch (e) { return new Date().toISOString().slice(0, 10); }
+  }
+  function rnoFor(n) { return 'ARE-' + todayISO().slice(0, 4) + '-' + String(n).padStart(6, '0'); }
+  function num(s) { var v = parseFloat(String(s).replace(/[^0-9.]/g, '')); return isNaN(v) ? null : v; }
+  function money(s) {
+    var v = num(s);
+    return v === null ? '' : 'Rs. ' + v.toLocaleString('en-PK', { maximumFractionDigits: 2 });
+  }
+  function dateText(iso) {
+    if (!iso) return '';
+    var d = new Date(iso + 'T00:00:00');
+    return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  function val(id) { return $(id).value.trim(); }
+
+  function put(id, text, placeholder) {
+    var el = $(id);
+    if (text) { el.textContent = text; el.classList.remove('is-empty'); }
+    else { el.textContent = placeholder; el.classList.add('is-empty'); }
+  }
+
+  function render() {
+    put('p-rno', val('rno'), '-');
+    put('p-date', dateText(val('date')), '-');
+    put('p-name', val('name'), 'Customer name');
+    put('p-acct', val('acct'), '-');
+    put('p-recv', money(val('recv')), 'Rs. 0');
+    put('p-bal', money(val('bal')), 'Rs. 0');
+    put('p-method', val('method'), '-');
+    put('p-by', val('by'), '-');
+    var b = num(val('bal'));
+    var old = document.querySelector('.r-badge'); if (old) old.remove();
+    if (b === 0) {
+      var s = document.createElement('span'); s.className = 'r-badge'; s.textContent = 'PAID IN FULL';
+      $('p-bal').parentNode.querySelector('span').appendChild(s);
+    }
+  }
+
+  function setStatus(msg, kind) { var s = $('status'); s.textContent = msg || ''; s.className = 'status' + (kind ? ' ' + kind : ''); }
+
+  function validate() {
+    var need = [['name', 'customer name'], ['acct', 'account number'], ['recv', 'received amount'], ['bal', 'balance amount'], ['by', 'who received the payment']];
+    var missing = [];
+    ids.forEach(function (i) { $(i).removeAttribute('aria-invalid'); });
+    need.forEach(function (n) {
+      var v = val(n[0]);
+      var bad = !v || ((n[0] === 'recv' || n[0] === 'bal') && num(v) === null);
+      if (bad) { missing.push(n[1]); $(n[0]).setAttribute('aria-invalid', 'true'); }
+    });
+    if (missing.length) { setStatus('Please fill in: ' + missing.join(', ') + '.', 'bad'); $(need.filter(function (n) { return $(n[0]).getAttribute('aria-invalid'); })[0][0]).focus(); return false; }
+    return true;
+  }
+
+  function receiptText() {
+    return [
+      'AL REHMAN ELECTRONICS',
+      'Payment Receipt',
+      '',
+      'Receipt No: ' + val('rno'),
+      'Date: ' + dateText(val('date')),
+      'Customer: ' + val('name'),
+      'Account No: ' + val('acct'),
+      'Amount Received: ' + money(val('recv')),
+      'Balance Remaining: ' + money(val('bal')),
+      'Paid via: ' + val('method'),
+      'Received by: ' + val('by'),
+      '',
+      'Thank you for your payment.'
+    ].join('\n');
+  }
+
+  function copyText() {
+    if (!validate()) return;
+    var t = receiptText();
+    var done = function () { setStatus('Receipt text copied. Paste it in WhatsApp.', 'ok'); };
+    var fallback = function () {
+      var ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+      ta.remove();
+      if (ok) done(); else setStatus('Copy was blocked. Use Create image instead.', 'bad');
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, fallback);
+    else fallback();
+  }
+
+  function toCanvas() {
+    if (!window.html2canvas) { setStatus('The image tool did not load. Check your internet and reload.', 'bad'); return Promise.resolve(null); }
+    return html2canvas($('receipt'), { scale: 3, backgroundColor: '#ffffff', useCORS: true });
+  }
+
+  function createImage() {
+    if (!validate()) return Promise.resolve(null);
+    setStatus('Creating image...');
+    return toCanvas().then(function (c) {
+      if (!c) return null;
+      $('out').src = c.toDataURL('image/png');
+      $('imgbox').hidden = false;
+      setStatus('Image ready below. Touch and hold it to save or share.', 'ok');
+      return c;
+    }).catch(function () { setStatus('Could not create the image. Try Copy text instead.', 'bad'); return null; });
+  }
+
+  function shareImage() {
+    createImage().then(function (c) {
+      if (!c) return;
+      c.toBlob(function (blob) {
+        if (!blob) return;
+        var file = new File([blob], 'receipt-' + val('rno') + '.png', { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: 'AL REHMAN ELECTRONICS receipt' }).catch(function (e) {
+            if (e && e.name !== 'AbortError') setStatus('Sharing is not available here. Touch and hold the image below to save it.', 'bad');
+          });
+        } else {
+          setStatus('Sharing is not available here. Touch and hold the image below to save it, then send it on WhatsApp.', 'bad');
+        }
+      }, 'image/png');
+    });
+  }
+
+  function fillSample() {
+    $('rno').value = rnoFor(loadCounter() + 1);
+    $('date').value = todayISO();
+    $('name').value = 'Muhammad Usman';
+    $('acct').value = '0042';
+    $('recv').value = '5000';
+    $('bal').value = '25000';
+    $('by').value = 'Abdul Rehman';
+    $('method').value = 'JazzCash';
+  }
+
+  function clearForm() {
+    ids.forEach(function (i) { $(i).removeAttribute('aria-invalid'); });
+    $('name').value = ''; $('acct').value = ''; $('recv').value = ''; $('bal').value = '';
+    $('date').value = todayISO();
+    $('rno').value = rnoFor(loadCounter() + 1);
+    $('imgbox').hidden = true; setStatus('');
+    render(); $('name').focus();
+  }
+
+  function newReceipt() {
+    saveCounter(loadCounter() + 1);
+    clearForm();
+    $('rno').value = rnoFor(loadCounter() + 1);
+    render();
+  }
+
+  ids.forEach(function (i) { $(i).addEventListener('input', function () { $(i).removeAttribute('aria-invalid'); render(); }); $(i).addEventListener('change', render); });
+  $('form').addEventListener('submit', function (e) { e.preventDefault(); });
+  $('btn-copy').addEventListener('click', copyText);
+  $('btn-img').addEventListener('click', createImage);
+  $('btn-share').addEventListener('click', shareImage);
+  $('btn-new').addEventListener('click', newReceipt);
+  $('btn-clear').addEventListener('click', clearForm);
+
+  fillSample();
+  render();
+})();
+</script>
+
+</body></html>
