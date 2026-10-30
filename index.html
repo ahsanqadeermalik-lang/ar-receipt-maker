@@ -135,6 +135,13 @@ button:hover { filter: brightness(1.08); }
 .gate p { margin: 0; color: var(--muted); }
 .gate form { display: grid; gap: 14px; }
 .logout { justify-self: start; }
+.check { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-weight: 400; color: var(--muted); }
+.check input { width: 18px; height: 18px; min-height: 0; padding: 0; accent-color: var(--gold); }
+.linkrow { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; }
+.linkbtn { background: none; border: 0; padding: 0; min-height: 36px; color: var(--fg); text-decoration: underline; font-weight: 500; }
+.gate form[hidden], .gate div[hidden] { display: none; }
+.gate div#fgt { display: grid; gap: 12px; }
+.gate-sub { font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0; font-weight: 600; }
 </style>
 
 </head>
@@ -147,14 +154,34 @@ button:hover { filter: brightness(1.08); }
       <div>
         <label for="lu">Username</label>
         <input id="lu" type="text" autocapitalize="none" autocorrect="off" spellcheck="false">
+        <label class="check" for="lrem"><input id="lrem" type="checkbox"> Always remember username</label>
       </div>
       <div>
         <label for="lp">Password</label>
         <input id="lp" type="password">
       </div>
       <button type="submit">Log in</button>
+      <div class="linkrow">
+        <button type="button" id="btn-forgot" class="linkbtn">Forgot password?</button>
+        <button type="button" id="btn-change" class="linkbtn">Change password</button>
+      </div>
       <p id="lerr" class="status bad" role="alert"></p>
     </form>
+    <form id="chg" autocomplete="off" novalidate hidden>
+      <h2 class="gate-sub">Change password</h2>
+      <div><label for="cp0">Current password</label><input id="cp0" type="password"></div>
+      <div><label for="cp1">New password (at least 6 characters)</label><input id="cp1" type="password"></div>
+      <div><label for="cp2">Repeat new password</label><input id="cp2" type="password"></div>
+      <button type="submit">Save new password</button>
+      <button type="button" class="alt" data-back>Back to log in</button>
+      <p id="cerr" class="status" role="alert"></p>
+    </form>
+    <div id="fgt" hidden>
+      <h2 class="gate-sub">Forgot password</h2>
+      <p>The recovery email for this app is <b>ahsanqadeermalik@gmail.com</b>.</p>
+      <p>A page that lives only on GitHub has no server, so it cannot send an email by itself. To get a new password, ask the person who set up this app to set one for you.</p>
+      <button type="button" class="alt" data-back>Back to log in</button>
+    </div>
   </div>
 </div>
 
@@ -257,7 +284,11 @@ button:hover { filter: brightness(1.08); }
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var LOGIN_HASH = '179e73c367b191da907d4da919179e52c4ffc201fa7d1dd52476c8ce1cff7ef8';
+  var USER = 'alrehman99';
+  var DEFAULT_HASH = 'aade9464dde4b6f325d6e15611c6b83274985634b32b53cf6a75bf90ee024e62';
+  function store(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+  function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function currentHash() { return load('are_pw') || DEFAULT_HASH; }
   function sha256(text) {
     var data = new TextEncoder().encode(text);
     return crypto.subtle.digest('SHA-256', data).then(function (buf) {
@@ -265,17 +296,48 @@ button:hover { filter: brightness(1.08); }
     });
   }
   function showApp(on) { $('app').hidden = !on; $('gate').hidden = on; }
-  function remember(on) { try { if (on) sessionStorage.setItem('are_auth', LOGIN_HASH); else sessionStorage.removeItem('are_auth'); } catch (e) {} }
-  function remembered() { try { return sessionStorage.getItem('are_auth') === LOGIN_HASH; } catch (e) { return false; } }
+  function remember(on) { try { if (on) sessionStorage.setItem('are_auth', currentHash()); else sessionStorage.removeItem('are_auth'); } catch (e) {} }
+  function remembered() { try { return sessionStorage.getItem('are_auth') === currentHash(); } catch (e) { return false; } }
+  function panel(which) { $('login').hidden = which !== 'login'; $('chg').hidden = which !== 'chg'; $('fgt').hidden = which !== 'fgt'; $('lerr').textContent = ''; $('cerr').textContent = ''; }
+
+  var savedUser = load('are_user');
+  if (savedUser) { $('lu').value = savedUser; $('lrem').checked = true; }
+
   $('login').addEventListener('submit', function (e) {
     e.preventDefault();
-    $('lerr').textContent = '';
-    sha256($('lu').value.trim() + ':' + $('lp').value).then(function (h) {
-      if (h === LOGIN_HASH) { remember(true); $('lp').value = ''; showApp(true); }
-      else { $('lerr').textContent = 'Wrong username or password. Please try again.'; $('lp').value = ''; $('lp').focus(); }
+    $('lerr').className = 'status bad'; $('lerr').textContent = '';
+    var u = $('lu').value.trim();
+    sha256(u + ':' + $('lp').value).then(function (h) {
+      var ok = (h === currentHash());
+      if (ok) {
+        store('are_user', $('lrem').checked ? u : null);
+        remember(true); $('lp').value = ''; showApp(true);
+      } else { $('lerr').textContent = 'Wrong username or password. Please try again.'; $('lp').value = ''; $('lp').focus(); }
     }).catch(function () { $('lerr').textContent = 'Login could not run in this browser.'; });
   });
-  $('btn-logout').addEventListener('click', function () { remember(false); $('lu').value = ''; $('lp').value = ''; showApp(false); $('lu').focus(); });
+
+  $('btn-forgot').addEventListener('click', function () { panel('fgt'); });
+  $('btn-change').addEventListener('click', function () { panel('chg'); $('cp0').focus(); });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-back]'), function (b) { b.addEventListener('click', function () { panel('login'); }); });
+
+  $('chg').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = $('cerr'); err.className = 'status bad'; err.textContent = '';
+    var p1 = $('cp1').value, p2 = $('cp2').value;
+    if (p1.length < 6) { err.textContent = 'The new password needs at least 6 characters.'; return; }
+    if (p1 !== p2) { err.textContent = 'The two new passwords do not match.'; return; }
+    sha256(USER + ':' + $('cp0').value).then(function (h) {
+      if (h !== currentHash()) { err.textContent = 'The current password is wrong.'; return null; }
+      return sha256(USER + ':' + p1).then(function (nh) {
+        store('are_pw', nh);
+        $('cp0').value = ''; $('cp1').value = ''; $('cp2').value = '';
+        panel('login');
+        $('lerr').className = 'status ok'; $('lerr').textContent = 'Password changed on this device. Log in with the new password.';
+      });
+    }).catch(function () { err.textContent = 'Could not change the password in this browser.'; });
+  });
+
+  $('btn-logout').addEventListener('click', function () { remember(false); $('lp').value = ''; $('lerr').className = 'status bad'; showApp(false); (($('lu').value) ? $('lp') : $('lu')).focus(); });
   showApp(remembered());
   var ids = ['date', 'name', 'acct', 'recv', 'bal', 'by', 'method'];
 
