@@ -155,6 +155,14 @@ button:hover { filter: brightness(1.08); }
 #htable td.acct { font-family: var(--font-mono); }
 #htable button { min-height: 36px; padding: 0 12px; }
 #view-hist[hidden], #view-new[hidden] { display: none; }
+button.danger { background: var(--bad); color: var(--surface); border-color: var(--bad); }
+button.danger:disabled { opacity: .45; cursor: not-allowed; }
+.confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; padding: 12px 14px; border: 1px solid var(--bad); border-radius: 4px; font-weight: 500; }
+.confirm[hidden] { display: none; }
+.confirm span { flex: 1 1 220px; }
+#htable th.sel, #htable td.sel { width: 1%; padding-right: 0; }
+#htable input[type="checkbox"] { width: 20px; height: 20px; min-height: 0; padding: 0; accent-color: var(--gold); }
+#htable tr.picked td { background: color-mix(in srgb, var(--gold) 12%, transparent); }
 </style>
 
 </head>
@@ -314,11 +322,17 @@ button:hover { filter: brightness(1.08); }
       <input id="hq" type="search" placeholder="Search by customer name or account number" aria-label="Search history">
       <button type="button" id="hrefresh" class="alt">Refresh</button>
       <button type="button" id="hcsv" class="alt">Export CSV</button>
+      <button type="button" id="hdel" class="danger" disabled>Delete selected</button>
+    </div>
+    <div id="hconf" class="confirm" role="alert" hidden>
+      <span id="hconf-t"></span>
+      <button type="button" id="hconf-yes" class="danger">Yes, delete</button>
+      <button type="button" id="hconf-no" class="alt">Cancel</button>
     </div>
     <p id="hstat" class="hint"></p>
     <div class="tablewrap">
       <table id="htable">
-        <thead><tr><th>Date</th><th>Customer</th><th>Account</th><th class="r">Received</th><th class="r">Balance</th><th>Method</th><th>By</th><th></th></tr></thead>
+        <thead><tr><th class="sel"><input type="checkbox" id="hall" aria-label="Select all shown receipts"></th><th>Date</th><th>Customer</th><th>Account</th><th class="r">Received</th><th class="r">Balance</th><th>Method</th><th>By</th><th></th></tr></thead>
         <tbody id="hbody"></tbody>
       </table>
     </div>
@@ -514,7 +528,7 @@ button:hover { filter: brightness(1.08); }
   function ensureSaved() { return lastSavedKey === formKey() ? Promise.resolve(true) : saveReceipt(); }
   function savedNote(ok) { return ok ? ' Saved to history.' : ' (Not saved to history.)'; }
 
-  var rows = [], histLoaded = false;
+  var rows = [], histLoaded = false, picked = {};
   function showTab(which) {
     var h = which === 'hist';
     $('view-new').hidden = h; $('view-hist').hidden = !h;
@@ -525,7 +539,7 @@ button:hover { filter: brightness(1.08); }
     $('hstat').textContent = 'Loading...';
     sb.from('receipts').select('*').order('receipt_date', { ascending: false }).order('created_at', { ascending: false }).limit(1000).then(function (r) {
       if (r.error) { $('hstat').textContent = 'Could not load history: ' + r.error.message; return; }
-      rows = r.data || []; histLoaded = true; drawHistory();
+      rows = r.data || []; picked = {}; histLoaded = true; drawHistory();
     }).catch(function () { $('hstat').textContent = 'Could not load history. Check your internet.'; });
   }
   function drawHistory() {
@@ -535,14 +549,45 @@ button:hover { filter: brightness(1.08); }
     var total = 0;
     list.forEach(function (x) {
       total += Number(x.received);
-      var tr = document.createElement('tr');
+      var tr = document.createElement('tr'); if (picked[x.id]) tr.className = 'picked';
+      var ctd = document.createElement('td'); ctd.className = 'sel';
+      var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!picked[x.id]; cb.setAttribute('aria-label', 'Select receipt of ' + x.customer_name);
+      cb.addEventListener('change', function () { if (cb.checked) picked[x.id] = true; else delete picked[x.id]; tr.className = cb.checked ? 'picked' : ''; syncSel(); });
+      ctd.appendChild(cb); tr.appendChild(ctd);
       [[dateText(x.receipt_date), ''], [x.customer_name, ''], [x.account_no, 'acct'], [money(x.received), 'r'], [money(x.balance), 'r'], [x.method, ''], [x.received_by, '']].forEach(function (c) {
         var td = document.createElement('td'); td.textContent = c[0]; if (c[1]) td.className = c[1]; tr.appendChild(td);
       });
       var td = document.createElement('td'); var b = document.createElement('button'); b.type = 'button'; b.className = 'alt'; b.textContent = 'Open';
       b.addEventListener('click', function () { openRow(x); }); td.appendChild(b); tr.appendChild(td); body.appendChild(tr);
     });
+    shown = list; syncSel();
     $('hstat').textContent = rows.length ? (list.length + ' of ' + rows.length + ' receipts shown. Total received: ' + money(total) + '.') : 'No receipts saved yet. Save one from the New receipt tab.';
+  }
+  var shown = [];
+  function pickedIds() { return rows.filter(function (x) { return picked[x.id]; }).map(function (x) { return x.id; }); }
+  function syncSel() {
+    var n = pickedIds().length;
+    $('hdel').disabled = n === 0; $('hdel').textContent = n ? 'Delete selected (' + n + ')' : 'Delete selected';
+    var all = $('hall'); all.checked = shown.length > 0 && shown.every(function (x) { return picked[x.id]; });
+    if (n === 0) $('hconf').hidden = true;
+  }
+  function askDelete() {
+    var n = pickedIds().length; if (!n) return;
+    $('hconf-t').textContent = 'Delete ' + n + (n === 1 ? ' receipt' : ' receipts') + ' from history? This cannot be undone.';
+    $('hconf').hidden = false;
+  }
+  function doDelete() {
+    var ids2 = pickedIds(); if (!ids2.length) return;
+    $('hconf-yes').disabled = true;
+    sb.from('receipts').delete().in('id', ids2).select('id').then(function (r) {
+      $('hconf-yes').disabled = false;
+      if (r.error) { $('hstat').textContent = 'Could not delete: ' + r.error.message; return; }
+      var gone = (r.data || []).map(function (x) { return x.id; });
+      rows = rows.filter(function (x) { return gone.indexOf(x.id) < 0; });
+      picked = {}; $('hconf').hidden = true; drawHistory();
+      $('hstat').textContent = gone.length + (gone.length === 1 ? ' receipt deleted. ' : ' receipts deleted. ') + $('hstat').textContent;
+      if (gone.length < ids2.length) $('hstat').textContent = 'Only ' + gone.length + ' of ' + ids2.length + ' could be deleted. ' + $('hstat').textContent;
+    }).catch(function () { $('hconf-yes').disabled = false; $('hstat').textContent = 'Could not delete. Check your internet.'; });
   }
   function openRow(x) {
     $('date').value = x.receipt_date; $('name').value = x.customer_name; $('acct').value = x.account_no;
@@ -648,6 +693,10 @@ button:hover { filter: brightness(1.08); }
   $('hq').addEventListener('input', drawHistory);
   $('hrefresh').addEventListener('click', loadHistory);
   $('hcsv').addEventListener('click', exportCsv);
+  $('hdel').addEventListener('click', askDelete);
+  $('hconf-no').addEventListener('click', function () { $('hconf').hidden = true; });
+  $('hconf-yes').addEventListener('click', doDelete);
+  $('hall').addEventListener('change', function () { var on = $('hall').checked; shown.forEach(function (x) { if (on) picked[x.id] = true; else delete picked[x.id]; }); drawHistory(); });
 
   $('date').value = todayISO();
   render();
